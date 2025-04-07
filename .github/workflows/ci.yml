@@ -1,0 +1,93 @@
+name: ci
+on: [push, workflow_dispatch]
+jobs:
+  ci:
+    strategy:
+      matrix:
+        python-version: ["3.12"]
+        uv-version: ["0.5.21"]
+        os: [ubuntu-latest]
+    name: UV
+    runs-on: ${{ matrix.os }}
+    permissions:
+      id-token: write
+    steps:
+      - uses: SkySoft-ATM/github-auth@v2
+        id: auth
+        with:
+          key_pem: ${{ secrets.RND_GH_APP_AUTH_ACTION_KEY }}
+          app_id: ${{ vars.RND_GH_APP_AUTH_ACTION_ID }}
+          app_install_id: ${{ vars.RND_GH_APP_AUTH_ACTION_INSTALL_ID }}
+          repositories: sample-python-project
+          permissions: '{"contents": "write", "actions": "write"}'
+      - name: Check out
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          submodules: recursive
+          token: ${{ steps.auth.outputs.access_token }}
+
+      - name: Setup python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      # UV cache depends on OS, Python version and UV version.
+      - name: Cache UV cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/uv
+          key: uv-cache-${{ runner.os }}-${{ matrix.python-version }}-${{ matrix.uv-version }}
+
+      # virtualenv cache should depend on OS, Python version and `uv.lock` (and optionally workflow files).
+      - name: Cache Packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.local
+          key: uv-${{ runner.os }}-${{ matrix.python-version }}-${{ hashFiles('**/uv.lock') }}-${{ hashFiles('.github/workflows/*.yml') }}
+
+      - name: Install UV
+        run: pip install uv==${{ matrix.uv-version }}
+      - name: Install dependencies
+        run: uv venv
+
+      - name: Running pytest
+        run: uv run pytest -v --cov --cov-report=xml --cov-report=html
+
+      - name: Running ruff
+        run: uv tool run ruff check src tests
+
+      - name: Run mypy
+        run: uv tool run mypy src tests
+      - name: SonarCloud Scan
+        uses: SonarSource/sonarcloud-github-action@c25d2e7e3def96d0d1781000d3c429da22cd6252
+        env:
+          GITHUB_TOKEN: ${{ secrets.RND_TOOLS_BOT_TOKEN }}  # Needed to get PR information, if any
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+      - name: Build Docs
+        run: |
+          cd docs
+          uv run sphinx-apidoc -e -T -f -o source/apidoc/ -t source/_templates/ ../src/hello
+          uv run pip-licenses --with-description --with-authors --with-urls -f rst --output-file=source/licenses.rst
+          {
+            echo "Licenses"
+            echo "========"
+            cat source/licenses.rst
+          } > temp.rst && mv temp.rst source/licenses.rst
+          uv run make html
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
+        with:
+          enablement: true
+          token: ${{ secrets.RND_TOOLS_BOT_TOKEN }}
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: 'docs/build/html'
+      - name: Deploy to GitHub Pages
+        id: deployment
+        if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+        uses: actions/deploy-pages@v4
+        with:
+          token: ${{ secrets.RND_TOOLS_BOT_TOKEN }}

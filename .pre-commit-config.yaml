@@ -1,6 +1,27 @@
+# See https://pre-commit.com for more information
+# See https://pre-commit.com/hooks.html for more hooks
+# See https://github.com/astral-sh/ruff-pre-commit/blob/main/.pre-commit-hooks.yaml for more details on ruff arguments
 repos:
--   repo: https://github.com/psf/black
-    rev: 24.8.0
+-   repo: local
     hooks:
-    - id: black
-      language_version: python3.12
+    - id: ruff
+      name: ruff
+      description: "Run 'ruff' for extremely fast Python linting"
+      entry: uv run ruff check
+      language: python
+      types_or: [ python, pyi ]
+      args: [ ]
+      require_serial: true
+      additional_dependencies: [ ]
+      minimum_pre_commit_version: "2.9.2"
+    - id: ruff-format
+      name: ruff-format
+      description: "Run 'ruff format' for extremely fast Python formatting"
+      entry: uv run ruff format --force-exclude
+      language: python
+      types_or: [ python, pyi ]
+      args: [ ]
+      require_serial: true
+      additional_dependencies: [ ]
+      minimum_pre_commit_version: "2.9.2"
+
