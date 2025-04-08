@@ -1,0 +1,3 @@
+[submodule "submodules/navconf"]
+	path = submodules/navconf
+	url = git@github.com:SkySoft-ATM/navigation-configuration.git
