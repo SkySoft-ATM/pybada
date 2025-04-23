@@ -18,7 +18,7 @@ jobs:
           key_pem: ${{ secrets.RND_GH_APP_AUTH_ACTION_KEY }}
           app_id: ${{ vars.RND_GH_APP_AUTH_ACTION_ID }}
           app_install_id: ${{ vars.RND_GH_APP_AUTH_ACTION_INSTALL_ID }}
-          repositories: sample-python-project
+          repositories: pybada
           permissions: '{"contents": "write", "actions": "write"}'
       - name: Check out
         uses: actions/checkout@v4
