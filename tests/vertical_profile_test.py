@@ -1,4 +1,6 @@
+import shutil
 from dataclasses import dataclass
+import os
 import matplotlib.pyplot as plt
 
 from pyBADA import atmosphere as atm
@@ -25,8 +27,6 @@ badaPath = "/home/giraudan/work/navigation-configuration/aircraftperformance"
 _bada_version = "3.16"
 
 allData = Bada3Parser.parseAll(filePath=badaPath, badaVersion=_bada_version)
-print(allData)
-
 AC = Bada3Aircraft(badaVersion=_bada_version, filePath=badaPath, acName="A320", allData=allData)
 
 # Example loading models from files on disk
@@ -46,7 +46,7 @@ ba = 0  # [deg] bank angle
 DeltaTemp = 0  # [K] delta temperature from ISA
 
 # Initial conditions
-m_init = AC.OEW + 0.7 * (AC.MTOW - AC.OEW)  # [kg] initial mass
+m_init = AC.MREF  # [kg] initial mass
 CAS_init = 170  # [kt] Initial CAS
 Hp_RWY = 318.0  # [ft] CDG RWY26R elevation
 
@@ -906,9 +906,13 @@ flightTrajectory = TCL.constantSpeedSlope(
 )
 ft.append(AC, flightTrajectory)
 
-# print and plot final trajectory
+# plot final trajectory
 df = ft.getFT(AC=AC)
-print(df)
+
+test_results_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "results")
+if os.path.exists(test_results_dir):
+    shutil.rmtree(test_results_dir)
+os.makedirs(test_results_dir, exist_ok=False)
 
 # Plotting the graph Hp=f(dist)
 plt.figure(1, figsize=(8, 6))
@@ -918,6 +922,10 @@ plt.xlabel("Distance [NM]")
 plt.ylabel("Pressure Altitude [ft]")
 plt.title("Pressure Altitude as a Function of Distance")
 
+# Save the plot
+png_path = os.path.join(test_results_dir, "vertical_profile.png")
+plt.savefig(png_path)
+
 # Plot for Calibrated Airspeed (CAS)
 plt.figure(2, figsize=(8, 6))
 plt.plot(df["dist"], df["CAS"], linestyle="-", color="r")
@@ -926,10 +934,18 @@ plt.xlabel("Distance [NM]")
 plt.ylabel("CAS [kt]")
 plt.title("Calibrated Airspeed (CAS) as a Function of Distance")
 
-# Display the plot
-plt.show()
+# Save the plot
+png_path = os.path.join(test_results_dir, "cas_profile.png")
+plt.savefig(png_path)
 
-# save the output to a CSV/XLSX file
-# ------------------------------------------------
-# ft.save2csv(os.path.join(grandParentDir, "flightTrajectory_export"), separator=",")
-# ft.save2xlsx(os.path.join(grandParentDir, "flightTrajectory_export"))
+# Save the CSV
+ft.save2csv(test_results_dir, separator=",")
+# Rename CSV
+for export_dir in os.listdir(test_results_dir):
+    export_dir_path = os.path.join(test_results_dir, export_dir)
+    if export_dir.startswith("export_") and os.path.isdir(export_dir_path):
+        for csv_file in os.listdir(export_dir_path):
+            if csv_file.endswith(".csv"):
+                shutil.move(os.path.join(export_dir_path, csv_file), os.path.join(test_results_dir, "profile.csv"))
+                os.removedirs(export_dir_path)
+                break
